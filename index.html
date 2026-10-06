@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2026 by anonymous (http://jsbin.com/wojoxixuke/3/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>科技風數字碼表 | Tech Stopwatch</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Share Tech Mono & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tech: {
+                            bg: '#0b0f19',
+                            card: '#111827',
+                            border: '#1f2937',
+                            cyan: '#06b6d4',
+                            cyanGlow: '#00f0ff',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            text: '#f3f4f6',
+                            muted: '#6b7280'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['Share Tech Mono', 'monospace'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #080c14;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            font-family: 'Inter', sans-serif;
+            color: #f3f4f6;
+            min-height: 100vh;
+        }
+
+        .digits-glow {
+            text-shadow: 0 0 15px rgba(6, 182, 212, 0.6), 0 0 30px rgba(6, 182, 212, 0.2);
+        }
+
+        .ring-glow {
+            filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.5));
+        }
+
+        .btn-tech-primary {
+            background: linear-gradient(135deg, #0e7490 0%, #06b6d4 100%);
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-tech-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.5);
+            background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+        }
+
+        .btn-tech-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-tech-pause {
+            background: linear-gradient(135deg, #be123c 0%, #f43f5e 100%);
+            box-shadow: 0 4px 20px rgba(244, 63, 94, 0.3);
+        }
+
+        .btn-tech-pause:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(244, 63, 94, 0.5);
+            background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%);
+        }
+
+        .btn-tech-secondary {
+            background: #1f2937;
+            border: 1px solid #374151;
+            transition: all 0.2s ease;
+        }
+
+        .btn-tech-secondary:hover:not(:disabled) {
+            background: #374151;
+            border-color: #06b6d4;
+            color: #06b6d4;
+            transform: translateY(-1px);
+        }
+
+        /* Disabled state style matching specifications */
+        .btn-tech-secondary:disabled, .btn-tech-primary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            border-color: #374151 !important;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 min-h-screen">
+
+    <header class="w-full max-w-md mb-6 flex justify-between items-center text-xs text-tech-muted uppercase tracking-widest">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-tech-cyan animate-pulse"></span>
+            <span>CHRONO-SYS v2.4</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="soundToggle" class="hover:text-tech-cyan transition-colors" title="切換音效">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+            <span id="statusBadge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">STANDBY</span>
+        </div>
+    </header>
+
+    <main class="w-full max-w-md bg-tech-card/90 backdrop-blur-md border border-tech-border rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col items-center gap-8 relative overflow-hidden">
+        
+        <!-- Subtle Sci-Fi Corner Decorations -->
+        <div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-tech-cyan/40 rounded-tl-2xl"></div>
+        <div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-tech-cyan/40 rounded-tr-2xl"></div>
+        <div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-tech-cyan/40 rounded-bl-2xl"></div>
+        <div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-tech-cyan/40 rounded-br-2xl"></div>
+
+        <!-- 圓形計時器 (與 Wireframe 中的計時器對應) -->
+        <section class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-2">
+            <!-- Background Outer Ring -->
+            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    stroke="#1f2937"
+                    stroke-width="3"
+                    fill="transparent"
+                />
+                <!-- Ticks on the outer edge -->
+                <circle
+                    cx="50"
+                    cy="50"
+                    r="47"
+                    stroke="#374151"
+                    stroke-width="1"
+                    stroke-dasharray="1 3"
+                    fill="transparent"
+                />
+                <!-- Animated Active Progress Arc -->
+                <circle
+                    id="progressRing"
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    stroke="#06b6d4"
+                    stroke-width="3.5"
+                    stroke-dasharray="276.46"
+                    stroke-dashoffset="0"
+                    stroke-linecap="round"
+                    fill="transparent"
+                    class="ring-glow transition-all duration-75"
+                />
+            </svg>
+
+            <!-- Inner Display Content -->
+            <div class="absolute flex flex-col items-center justify-center text-center">
+                <!-- Secondary Micro-Info -->
+                <span class="text-xs font-mono tracking-widest text-tech-muted uppercase mb-1" id="lapCounter">LAP 0</span>
+                
+                <!-- Main Timer Digits (MM:SS.ms) -->
+                <div class="font-mono text-3xl sm:text-4xl font-bold tracking-wider text-tech-text digits-glow flex items-baseline">
+                    <span id="displayMinutes">00</span><span class="text-tech-cyan text-2xl animate-pulse">:</span><span id="displaySeconds">00</span><span class="text-tech-cyan text-xl">.</span><span id="displayMillis" class="text-2xl text-tech-cyan">00</span>
+                </div>
+
+                <!-- Hours display if elapsed > 1 hour -->
+                <div id="displayHoursContainer" class="hidden text-xs font-mono text-tech-muted mt-1">
+                    <span id="displayHours">00</span> HOURS
+                </div>
+            </div>
+        </section>
+
+        <!-- 操作按鈕區段 (Wireframe: 開始 + 重置) -->
+        <section class="w-full flex flex-col items-center gap-3">
+            
+            <!-- 主按鈕：開始 / 暫停 (Wireframe 中的「開始」) -->
+            <button 
+                id="mainBtn" 
+                class="btn-tech-primary w-full py-4 rounded-xl text-lg font-bold text-white tracking-widest uppercase flex items-center justify-center gap-3 transition-all cursor-pointer">
+                <i id="mainBtnIcon" class="fa-solid fa-play"></i>
+                <span id="mainBtnText">開始</span>
+            </button>
+
+            <!-- 次要按鈕列：重置 (Wireframe 中的「重置」) 及 圈速按鈕 -->
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <!-- 重置按鈕 (預設 disabled) -->
+                <button 
+                    id="resetBtn" 
+                    disabled 
+                    class="btn-tech-secondary py-3 rounded-xl text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span>重置</span>
+                </button>
+
+                <!-- 計時圈按鈕 (額外科技感功能，跟隨啟動狀態) -->
+                <button 
+                    id="lapBtn" 
+                    disabled 
+                    class="btn-tech-secondary py-3 rounded-xl text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-stopwatch text-xs"></i>
+                    <span>分圈 (Lap)</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 分圈紀錄歷史列表面板 -->
+        <section class="w-full border-t border-tech-border/80 pt-4 mt-1">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <span class="text-xs font-semibold text-tech-muted uppercase tracking-wider">
+                    <i class="fa-solid fa-list-ol mr-1"></i> 分圈紀錄 (Lap History)
+                </span>
+                <span id="lapCountBadge" class="text-xs font-mono text-tech-cyan">0 筆</span>
+            </div>
+            
+            <div id="lapList" class="max-h-36 overflow-y-auto pr-1 flex flex-col gap-1.5 min-h-[60px]">
+                <div id="emptyLapText" class="text-center py-4 text-xs text-slate-600 font-mono">
+                    暫無圈速記錄
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="mt-6 text-center text-xs text-tech-muted flex items-center gap-3">
+        <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">Space</kbd> 開始/暫停</span>
+        <span>•</span>
+        <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">R</kbd> 重置</span>
+        <span>•</span>
+        <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">L</kbd> 分圈</span>
+    </footer>
+
+    <script>
+        /* 
+         * 碼表狀態機邏輯 (完全符合 flowchart TD 流程圖):
+         * 1. 進入首頁 -> 重置按鈕預設 disabled
+         * 2. 點擊「開始」 -> 開始計時, 「開始」變「暫停」, 重置按鈕變 enabled
+         * 3. 點擊「暫停」 -> 暫停計時, 「暫停」變「開始」
+         * 4. 點擊「重置」 -> 停止計時並歸零, 重置按鈕變 disabled
+         */
+
+        // State Variables
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let soundEnabled = true;
+        let laps = [];
+        let lastLapTime = 0;
+
+        // DOM Elements
+        const displayMinutes = document.getElementById('displayMinutes');
+        const displaySeconds = document.getElementById('displaySeconds');
+        const displayMillis = document.getElementById('displayMillis');
+        const displayHours = document.getElementById('displayHours');
+        const displayHoursContainer = document.getElementById('displayHoursContainer');
+        
+        const mainBtn = document.getElementById('mainBtn');
+        const mainBtnText = document.getElementById('mainBtnText');
+        const mainBtnIcon = document.getElementById('mainBtnIcon');
+        const resetBtn = document.getElementById('resetBtn');
+        const lapBtn = document.getElementById('lapBtn');
+        
+        const statusBadge = document.getElementById('statusBadge');
+        const progressRing = document.getElementById('progressRing');
+        const soundToggle = document.getElementById('soundToggle');
+        const lapList = document.getElementById('lapList');
+        const emptyLapText = document.getElementById('emptyLapText');
+        const lapCountBadge = document.getElementById('lapCountBadge');
+        const lapCounter = document.getElementById('lapCounter');
+
+        // Web Audio API Sound Synthesizer (No external sound files required)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBeep(freq = 800, duration = 0.05, type = 'sine') {
+            if (!soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.error("Audio play error", e);
+            }
+        }
+
+        // Format milliseconds into structured object
+        function formatTime(ms) {
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+            const millis = Math.floor((ms % 1000) / 10); // 2 digits millisecond
+
+            return {
+                hours: hours.toString().padStart(2, '0'),
+                minutes: minutes.toString().padStart(2, '0'),
+                seconds: seconds.toString().padStart(2, '0'),
+                millis: millis.toString().padStart(2, '0'),
+                rawMs: ms
+            };
+        }
+
+        // Render UI Display
+        function updateDisplay() {
+            const timeObj = formatTime(elapsedTime);
+            displayMinutes.textContent = timeObj.minutes;
+            displaySeconds.textContent = timeObj.seconds;
+            displayMillis.textContent = timeObj.millis;
+
+            if (parseInt(timeObj.hours) > 0) {
+                displayHoursContainer.classList.remove('hidden');
+                displayHours.textContent = timeObj.hours;
+            } else {
+                displayHoursContainer.classList.add('hidden');
+            }
+
+            // Update Ring Arc (60 second cycle for full circle)
+            const secondRatio = (timeObj.rawMs % 60000) / 60000;
+            const circumference = 2 * Math.PI * 44; // 276.46
+            const offset = circumference - (secondRatio * circumference);
+            progressRing.style.strokeDashoffset = offset;
+        }
+
+        // Action: Start Stopwatch
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            startTime = Date.now() - elapsedTime;
+
+            // Interval tick (High accuracy ~10ms)
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                updateDisplay();
+            }, 10);
+
+            // Flowchart Rule: 「開始」變成「暫停」
+            mainBtnText.textContent = "暫停";
+            mainBtnIcon.className = "fa-solid fa-pause";
+            mainBtn.className = "btn-tech-pause w-full py-4 rounded-xl text-lg font-bold text-white tracking-widest uppercase flex items-center justify-center gap-3 transition-all cursor-pointer";
+
+            // Flowchart Rule: 重置按鈕變成 enabled
+            resetBtn.disabled = false;
+            lapBtn.disabled = false;
+
+            // Status indicator
+            statusBadge.textContent = "RUNNING";
+            statusBadge.className = "px-2 py-0.5 rounded bg-tech-cyan/20 text-tech-cyan font-mono border border-tech-cyan/30";
+
+            playBeep(880, 0.08, 'triangle');
+        }
+
+        // Action: Pause Stopwatch
+        function pauseTimer() {
+            if (!isRunning) return;
+            isRunning = false;
+            clearInterval(timerInterval);
+
+            // Flowchart Rule: 「暫停」變成「開始」
+            mainBtnText.textContent = "開始";
+            mainBtnIcon.className = "fa-solid fa-play";
+            mainBtn.className = "btn-tech-primary w-full py-4 rounded-xl text-lg font-bold text-white tracking-widest uppercase flex items-center justify-center gap-3 transition-all cursor-pointer";
+
+            // Status indicator
+            statusBadge.textContent = "PAUSED";
+            statusBadge.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono border border-amber-500/30";
+
+            playBeep(440, 0.08, 'sine');
+        }
+
+        // Action: Reset Stopwatch (停止並歸零)
+        function resetTimer() {
+            // Stop timing
+            if (isRunning) {
+                pauseTimer();
+            }
+
+            // Zero out state
+            elapsedTime = 0;
+            lastLapTime = 0;
+            laps = [];
+
+            // Update UI
+            updateDisplay();
+            renderLaps();
+
+            // Flowchart Rule: 重置按鈕變成 disabled
+            resetBtn.disabled = true;
+            lapBtn.disabled = true;
+
+            // Reset ring offset
+            progressRing.style.strokeDashoffset = 0;
+
+            // Reset badge
+            statusBadge.textContent = "STANDBY";
+            statusBadge.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono";
+
+            playBeep(330, 0.12, 'sawtooth');
+        }
+
+        // Action: Record Lap Time
+        function recordLap() {
+            if (elapsedTime === 0) return;
+
+            const lapTime = elapsedTime - lastLapTime;
+            lastLapTime = elapsedTime;
+
+            laps.unshift({
+                id: laps.length + 1,
+                total: formatTime(elapsedTime),
+                lap: formatTime(lapTime)
+            });
+
+            renderLaps();
+            playBeep(1200, 0.05, 'sine');
+        }
+
+        // Render Lap History List
+        function renderLaps() {
+            lapCountBadge.textContent = `${laps.length} 筆`;
+            lapCounter.textContent = `LAP ${laps.length}`;
+
+            if (laps.length === 0) {
+                lapList.innerHTML = `
+                    <div id="emptyLapText" class="text-center py-4 text-xs text-slate-600 font-mono">
+                        暫無圈速記錄
+                    </div>
+                `;
+                return;
+            }
+
+            lapList.innerHTML = laps.map((item, index) => {
+                const isLatest = index === 0;
+                return `
+                    <div class="flex items-center justify-between px-3 py-1.5 rounded bg-slate-900/80 border ${isLatest ? 'border-tech-cyan/40 text-tech-cyan' : 'border-slate-800 text-slate-300'} font-mono text-xs transition-all">
+                        <span class="font-bold">#${item.id.toString().padStart(2, '0')}</span>
+                        <span>分圈: +${item.lap.minutes}:${item.lap.seconds}.${item.lap.millis}</span>
+                        <span class="text-tech-muted">總計: ${item.total.minutes}:${item.total.seconds}.${item.total.millis}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Toggle Start / Pause via Main Button
+        mainBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        // Reset Button
+        resetBtn.addEventListener('click', resetTimer);
+
+        // Lap Button
+        lapBtn.addEventListener('click', recordLap);
+
+        // Sound Mute Toggle
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.innerHTML = soundEnabled 
+                ? '<i class="fa-solid fa-volume-high text-sm"></i>' 
+                : '<i class="fa-solid fa-volume-xmark text-sm text-slate-600"></i>';
+        });
+
+        // Keyboard Shortcuts Handler
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                mainBtn.click();
+            } else if (e.code === 'KeyR') {
+                if (!resetBtn.disabled) {
+                    resetTimer();
+                }
+            } else if (e.code === 'KeyL') {
+                if (!lapBtn.disabled) {
+                    recordLap();
+                }
+            }
+        });
+
+        // Initialize display state on load
+        updateDisplay();
+    </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"480c9d8468c44ad3bed3c74fbcc6d6f3","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
