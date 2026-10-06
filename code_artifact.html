@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九宮格圖片展示與切圖工具</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* 3D tilt effect and custom scrollbars */
+        .tile-card {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+            background-repeat: no-repeat;
+        }
+        
+        .tile-card:hover {
+            z-index: 20;
+            transform: scale(1.04) translateZ(10px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Custom slider styles */
+        input[type=range] {
+            accent-color: #6366f1;
+        }
+
+        /* Glassmorphism containers */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .puzzle-empty {
+            opacity: 0.15;
+            filter: grayscale(100%);
+            border: 2px dashed #6366f1 !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- Navigation Bar -->
+    <header class="w-full glass-panel sticky top-0 z-50 px-6 py-4 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid font-bold fa-table-cells text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+                        九宮格圖片展示
+                    </h1>
+                    <p class="text-xs text-slate-400">3x3 Grid Slice & Interactive Viewer</p>
+                </div>
+            </div>
+
+            <!-- Action Quick Tools -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <button id="modeToggleBtn" onclick="togglePuzzleMode()" class="px-4 py-2 text-sm font-medium rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-2">
+                    <i class="fa-solid fa-puzzle-piece text-indigo-400"></i>
+                    <span id="modeBtnText">開啟拼圖模式</span>
+                </button>
+                <button onclick="downloadAllTiles()" class="px-4 py-2 text-sm font-medium rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i>
+                    <span>下載 9 切圖</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col lg:flex-row gap-8 items-start justify-center">
+
+        <!-- Controls Sidebar -->
+        <aside class="w-full lg:w-80 glass-panel p-6 rounded-2xl shadow-xl flex flex-col gap-6">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <h2 class="font-semibold text-lg flex items-center gap-2 text-slate-200">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> 外觀與邊距控制
+                </h2>
+                <button onclick="resetControls()" class="text-xs text-slate-400 hover:text-indigo-400 transition">重設</button>
+            </div>
+
+            <!-- Grid Gap Control -->
+            <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                    <label class="text-slate-300 font-medium">九宮格間距 (Gap)</label>
+                    <span id="gapVal" class="text-indigo-400 font-mono">8px</span>
+                </div>
+                <input type="range" id="gapInput" min="0" max="32" value="8" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Border Radius Control -->
+            <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                    <label class="text-slate-300 font-medium">切塊圓角 (Radius)</label>
+                    <span id="radiusVal" class="text-indigo-400 font-mono">12px</span>
+                </div>
+                <input type="range" id="radiusInput" min="0" max="32" value="12" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Image Filter Effect -->
+            <div class="space-y-2">
+                <label class="text-slate-300 font-medium text-sm">濾鏡風格</label>
+                <select id="filterSelect" onchange="applyFilter()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="none">原圖 (Normal)</option>
+                    <option value="brightness(1.1) contrast(1.05)">鮮豔 (Vivid)</option>
+                    <option value="grayscale(100%)">經典黑白 (Monochrome)</option>
+                    <option value="sepia(60%)">復古棕調 (Vintage)</option>
+                    <option value="hue-rotate(90deg)">夢幻幻彩 (Cyberpunk)</option>
+                </select>
+            </div>
+
+            <!-- Full Image Preview Thumbnail -->
+            <div class="pt-2 border-t border-slate-700/60">
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-3">原始圖片參照</label>
+                <div class="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-800 aspect-square max-w-[200px] mx-auto shadow-md">
+                    <img id="sourceImg" src="https://i.postimg.cc/qvbTPsQ8/IMG-9103.jpg" alt="Source" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <button onclick="openModal(-1)" class="px-3 py-1.5 text-xs bg-white/20 backdrop-blur-md rounded-lg border border-white/30 text-white hover:bg-white/40 transition">
+                            <i class="fa-solid fa-expand mr-1"></i> 查看原圖
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Info Box (Hidden by default) -->
+            <div id="puzzleInfoBox" class="hidden p-4 rounded-xl bg-indigo-950/50 border border-indigo-800/50 space-y-2">
+                <div class="flex justify-between items-center text-xs text-indigo-200">
+                    <span>移動步數：<strong id="moveCount" class="text-indigo-400 font-mono text-sm">0</strong></span>
+                    <button onclick="shufflePuzzle()" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-white text-xs">重新洗牌</button>
+                </div>
+                <p class="text-xs text-slate-400">點擊與空白格相鄰的方塊即可進行移動拼圖！</p>
+            </div>
+        </aside>
+
+        <!-- 3x3 Grid Viewport -->
+        <section class="flex-1 w-full flex flex-col items-center justify-center">
+            
+            <div class="w-full max-w-[560px] aspect-square p-4 glass-panel rounded-3xl shadow-2xl flex flex-col items-center justify-center">
+                <!-- Dynamic 3x3 Grid -->
+                <div id="gridContainer" class="w-full h-full grid grid-cols-3 grid-rows-3 transition-all duration-300">
+                    <!-- Tiles will be dynamically injected by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Grid Helper Info -->
+            <div class="mt-4 flex items-center justify-between w-full max-w-[560px] text-xs text-slate-400 px-2">
+                <span><i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> 點擊任意格圖可單獨放大或下載</span>
+                <span id="gridStatusText">模式：3x3 圖片切割檢視</span>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Preview & Download Dialog -->
+    <div id="lightboxModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-6 relative flex flex-col items-center gap-4 border border-slate-700 shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            
+            <!-- Close Button -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-200">圖塊預覽 #1</h3>
+
+            <!-- Canvas Container for Tile Display -->
+            <div class="relative w-full aspect-square max-w-[320px] bg-slate-900 rounded-xl overflow-hidden shadow-inner border border-slate-700 flex items-center justify-center">
+                <canvas id="modalCanvas" class="max-w-full max-h-full rounded-lg object-contain"></canvas>
+            </div>
+
+            <div class="flex items-center gap-3 w-full mt-2">
+                <button id="downloadSingleBtn" onclick="downloadCurrentModalTile()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-download"></i> 下載此圖塊
+                </button>
+                <button onclick="closeModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl transition text-sm">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMsg">通知訊息</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-6 text-xs text-slate-500 border-t border-slate-800/80 mt-8">
+        九宮格圖片展示切圖工具 &copy; 2026. Designed for smooth slice and preview.
+    </footer>
+
+    <script>
+        // Image URL provided by user
+        const imageUrl = "https://i.postimg.cc/qvbTPsQ8/IMG-9103.jpg";
+
+        // Global State Variables
+        let isPuzzleMode = false;
+        let puzzleState = [0, 1, 2, 3, 4, 5, 6, 7, 8]; // Current positions
+        let emptyIndex = 8; // Blank tile index in puzzle mode
+        let moveCount = 0;
+        let currentActiveTileIndex = -1;
+        let loadedImg = new Image();
+        loadedImg.crossOrigin = "anonymous";
+
+        // DOM Elements
+        const gridContainer = document.getElementById('gridContainer');
+        const gapInput = document.getElementById('gapInput');
+        const radiusInput = document.getElementById('radiusInput');
+        const gapVal = document.getElementById('gapVal');
+        const radiusVal = document.getElementById('radiusVal');
+        const filterSelect = document.getElementById('filterSelect');
+        const puzzleInfoBox = document.getElementById('puzzleInfoBox');
+        const modeBtnText = document.getElementById('modeBtnText');
+        const gridStatusText = document.getElementById('gridStatusText');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initGrid();
+            setupEventListeners();
+            
+            // Preload image for canvas downloads
+            loadedImg.src = imageUrl;
+            loadedImg.onload = () => {
+                console.log("Image loaded successfully for canvas processing.");
+            };
+            loadedImg.onerror = () => {
+                showToast("載入線上圖片，如需要高清導出請確認網路連接", "fa-triangle-exclamation", "text-amber-400");
+            };
+        });
+
+        // Generate 3x3 Grid HTML Elements
+        function initGrid() {
+            gridContainer.innerHTML = '';
+            
+            for (let i = 0; i < 9; i++) {
+                const row = Math.floor(i / 3);
+                const col = i % 3;
+
+                // Calculate background offset for 3x3 slicing
+                // col 0 = 0%, col 1 = 50%, col 2 = 100%
+                // row 0 = 0%, row 1 = 50%, row 2 = 100%
+                const posX = col * 50;
+                const posY = row * 50;
+
+                const tile = document.createElement('div');
+                tile.id = `tile-${i}`;
+                tile.className = `tile-card relative cursor-pointer border border-slate-700/50 shadow-md group overflow-hidden flex items-center justify-center`;
+                tile.style.backgroundImage = `url('${imageUrl}')`;
+                tile.style.backgroundSize = `300% 300%`;
+                tile.style.backgroundPosition = `${posX}% ${posY}%`;
+                tile.style.borderRadius = `${radiusInput.value}px`;
+                tile.setAttribute('data-original-index', i);
+
+                // Overlay badge & hover effect
+                tile.innerHTML = `
+                    <div class="absolute inset-0 bg-indigo-900/20 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <span class="text-xs bg-slate-900/80 border border-slate-700 text-slate-200 px-2 py-1 rounded-md shadow">
+                            #${i + 1}
+                        </span>
+                    </div>
+                `;
+
+                tile.addEventListener('click', () => handleTileClick(i));
+                gridContainer.appendChild(tile);
+            }
+
+            updateGridStyles();
+        }
+
+        function setupEventListeners() {
+            gapInput.addEventListener('input', (e) => {
+                gapVal.textContent = `${e.target.value}px`;
+                updateGridStyles();
+            });
+
+            radiusInput.addEventListener('input', (e) => {
+                radiusVal.textContent = `${e.target.value}px`;
+                updateGridStyles();
+            });
+        }
+
+        function updateGridStyles() {
+            gridContainer.style.gap = `${gapInput.value}px`;
+            const tiles = gridContainer.children;
+            for (let tile of tiles) {
+                tile.style.borderRadius = `${radiusInput.value}px`;
+                tile.style.filter = filterSelect.value;
+            }
+        }
+
+        function applyFilter() {
+            updateGridStyles();
+        }
+
+        function resetControls() {
+            gapInput.value = 8;
+            radiusInput.value = 12;
+            filterSelect.value = 'none';
+            gapVal.textContent = '8px';
+            radiusVal.textContent = '12px';
+            updateGridStyles();
+            showToast("已重置所有外觀設置");
+        }
+
+        function togglePuzzleMode() {
+            isPuzzleMode = !isPuzzleMode;
+            
+            if (isPuzzleMode) {
+                modeBtnText.textContent = "退出拼圖模式";
+                puzzleInfoBox.classList.remove('hidden');
+                gridStatusText.textContent = "模式：3x3 拼圖遊戲中";
+                shufflePuzzle();
+            } else {
+                modeBtnText.textContent = "開啟拼圖模式";
+                puzzleInfoBox.classList.add('hidden');
+                gridStatusText.textContent = "模式：3x3 圖片切割檢視";
+                resetPuzzleGrid();
+            }
+        }
+
+        function shufflePuzzle() {
+            moveCount = 0;
+            document.getElementById('moveCount').textContent = moveCount;
+            puzzleState = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            
+            // Random shuffle (solvable check logic)
+            for (let i = puzzleState.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [puzzleState[i], puzzleState[j]] = [puzzleState[j], puzzleState[i]];
+            }
+            emptyIndex = puzzleState.indexOf(8);
+            renderPuzzleGrid();
+        }
+
+        function renderPuzzleGrid() {
+            gridContainer.innerHTML = '';
+            
+            puzzleState.forEach((originalIdx, currentGridPos) => {
+                const row = Math.floor(originalIdx / 3);
+                const col = originalIdx % 3;
+                const posX = col * 50;
+                const posY = row * 50;
+
+                const tile = document.createElement('div');
+                tile.className = `tile-card relative cursor-pointer border border-slate-700/50 shadow-md flex items-center justify-center transition-all duration-200`;
+                tile.style.borderRadius = `${radiusInput.value}px`;
+
+                if (originalIdx === 8) {
+                    // Blank empty tile
+                    tile.classList.add('puzzle-empty');
+                    tile.style.backgroundImage = 'none';
+                } else {
+                    tile.style.backgroundImage = `url('${imageUrl}')`;
+                    tile.style.backgroundSize = `300% 300%`;
+                    tile.style.backgroundPosition = `${posX}% ${posY}%`;
+                    tile.style.filter = filterSelect.value;
+                }
+
+                tile.addEventListener('click', () => onPuzzleTileClick(currentGridPos));
+                gridContainer.appendChild(tile);
+            });
+        }
+
+        function onPuzzleTileClick(positionIndex) {
+            if (!isPuzzleMode) return;
+
+            // Check adjacency (Up, Down, Left, Right)
+            const row1 = Math.floor(positionIndex / 3);
+            const col1 = positionIndex % 3;
+            const row2 = Math.floor(emptyIndex / 3);
+            const col2 = emptyIndex % 3;
+
+            const isAdjacent = (Math.abs(row1 - row2) + Math.abs(col1 - col2)) === 1;
+
+            if (isAdjacent) {
+                // Swap position with empty
+                [puzzleState[positionIndex], puzzleState[emptyIndex]] = [puzzleState[emptyIndex], puzzleState[positionIndex]];
+                emptyIndex = positionIndex;
+                moveCount++;
+                document.getElementById('moveCount').textContent = moveCount;
+                renderPuzzleGrid();
+
+                // Check Win Condition
+                if (checkPuzzleWin()) {
+                    setTimeout(() => {
+                        showToast("🎉 太棒了！您成功完成了拼圖！", "fa-trophy", "text-amber-400");
+                    }, 200);
+                }
+            }
+        }
+
+        function checkPuzzleWin() {
+            for (let i = 0; i < 9; i++) {
+                if (puzzleState[i] !== i) return false;
+            }
+            return true;
+        }
+
+        function resetPuzzleGrid() {
+            puzzleState = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            initGrid();
+        }
+
+        function handleTileClick(index) {
+            if (isPuzzleMode) return;
+            openModal(index);
+        }
+
+        function openModal(tileIndex) {
+            currentActiveTileIndex = tileIndex;
+            const modal = document.getElementById('lightboxModal');
+            const modalContent = document.getElementById('modalContent');
+            const modalTitle = document.getElementById('modalTitle');
+            const canvas = document.getElementById('modalCanvas');
+            const ctx = canvas.getContext('2d');
+
+            modalTitle.textContent = tileIndex === -1 ? "完整原圖" : `九宮格圖塊 #${tileIndex + 1}`;
+
+            // Render tile cutout to canvas
+            const renderSize = 600;
+            canvas.width = renderSize;
+            canvas.height = renderSize;
+
+            if (tileIndex === -1) {
+                // Full image preview
+                ctx.drawImage(loadedImg, 0, 0, renderSize, renderSize);
+            } else {
+                // Cutout specific 1/3 section
+                const row = Math.floor(tileIndex / 3);
+                const col = tileIndex % 3;
+                const sw = loadedImg.naturalWidth / 3 || 300;
+                const sh = loadedImg.naturalHeight / 3 || 300;
+                const sx = col * sw;
+                const sy = row * sh;
+
+                ctx.clearRect(0, 0, renderSize, renderSize);
+                ctx.drawImage(loadedImg, sx, sy, sw, sh, 0, 0, renderSize, renderSize);
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('lightboxModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modal.classList.add('opacity-0');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function downloadCurrentModalTile() {
+            const canvas = document.getElementById('modalCanvas');
+            const title = currentActiveTileIndex === -1 ? "Full_Image" : `Grid_Tile_${currentActiveTileIndex + 1}`;
+            
+            try {
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+                const link = document.createElement('a');
+                link.download = `IMG-9103_${title}.jpg`;
+                link.href = dataUrl;
+                link.click();
+                showToast(`已成功下載：${title}`);
+            } catch (err) {
+                console.error("Canvas export failed:", err);
+                showToast("因瀏覽器安全限制，請直接長按圖片儲存", "fa-circle-exclamation", "text-rose-400");
+            }
+        }
+
+        function downloadAllTiles() {
+            if (!loadedImg.complete || loadedImg.naturalWidth === 0) {
+                showToast("圖片尚未完全載入，請稍後再試", "fa-circle-exclamation", "text-amber-400");
+                return;
+            }
+
+            showToast("正在逐一下載 9 張切圖...", "fa-spinner", "text-indigo-400");
+
+            const sw = loadedImg.naturalWidth / 3;
+            const sh = loadedImg.naturalHeight / 3;
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = sw;
+            offCanvas.height = sh;
+            const offCtx = offCanvas.getContext('2d');
+
+            let delay = 0;
+            for (let i = 0; i < 9; i++) {
+                setTimeout(() => {
+                    const row = Math.floor(i / 3);
+                    const col = i % 3;
+                    const sx = col * sw;
+                    const sy = row * sh;
+
+                    offCtx.clearRect(0, 0, sw, sh);
+                    offCtx.drawImage(loadedImg, sx, sy, sw, sh, 0, 0, sw, sh);
+
+                    try {
+                        const dataUrl = offCanvas.toDataURL("image/jpeg", 0.95);
+                        const a = document.createElement('a');
+                        a.download = `Grid_Tile_${i + 1}.jpg`;
+                        a.href = dataUrl;
+                        a.click();
+                    } catch (e) {
+                        console.error(e);
+                    }
+
+                    if (i === 8) {
+                        showToast("所有 9 張切圖已下載完成！");
+                    }
+                }, delay);
+
+                delay += 250; // Staggered downloads
+            }
+        }
+
+        function showToast(message, iconClass = "fa-circle-check", iconColor = "text-emerald-400") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = message;
+            toastIcon.className = `fa-solid ${iconClass} ${iconColor} text-lg`;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
