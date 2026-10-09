@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2026 by anonymous (http://jsbin.com/meditecuse/2/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Realtime Database 測試頁面</title>
+</head>
+<body>
+
+    <h1>Firebase Realtime Database 測試頁面</h1>
+
+    <!-- 輸入區域 -->
+    <div>
+        <label for="messageInput">輸入文字內容：</label><br>
+        <textarea id="messageInput" rows="6" cols="50" placeholder="請在此輸入內容..."></textarea>
+        <br><br>
+        <button id="submitBtn" disabled>送出</button>
+        <button id="resetBtn" disabled>重填</button>
+    </div>
+
+    <hr>
+
+    <!-- 即時清單顯示區域 -->
+    <h2>已儲存的資料清單</h2>
+    <ul id="messageList">
+        <li>載入中，請稍候...</li>
+    </ul>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+        // 1. 請在此填入您的 Firebase 專案設定資訊
+const firebaseConfig = {
+  apiKey: "AIzaSyC8WZpCK4mWQUAg3qnuR6NI99XBwWObdP8",
+  authDomain: "test-5e0d3.firebaseapp.com",
+  databaseURL: "https://test-5e0d3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "test-5e0d3",
+  storageBucket: "test-5e0d3.firebasestorage.app",
+  messagingSenderId: "1066795530996",
+  appId: "1:1066795530996:web:cb7c188d1692b3dcaffca1"
+};
+
+        // 初始化 Firebase App
+        const app = initializeApp(firebaseConfig);
+
+        // 2. 初始化 App Check 與 reCAPTCHA v3
+        // 請將 'YOUR_RECAPTCHA_V3_SITE_KEY' 替換為您的 reCAPTCHA v3 金鑰 (Site Key)
+        try {
+            initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider('6LfXceYtAAAAAFIZUZJvDfgAr0jijlmqrTzKAWJq'),
+                isTokenAutoRefreshEnabled: true
+            });
+            console.log("App Check 已初始化");
+        } catch (err) {
+            console.warn("App Check 初始化警告或失敗：", err);
+        }
+
+        // 初始化 Realtime Database 實例
+        const db = getDatabase(app);
+        const messagesRef = ref(db, 'messages');
+
+        // DOM 元素引用
+        const messageInput = document.getElementById('messageInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const messageList = document.getElementById('messageList');
+
+        // 檢查欄位是否有文字，並控制按鈕啟用/禁用
+        function checkInputState() {
+            const hasContent = messageInput.value.trim().length > 0;
+            submitBtn.disabled = !hasContent;
+            resetBtn.disabled = !hasContent;
+        }
+
+        // 監聽輸入欄位字數變更
+        messageInput.addEventListener('input', checkInputState);
+
+        // 重填按鈕事件：清空文字並禁用按鈕
+        resetBtn.addEventListener('click', () => {
+            messageInput.value = '';
+            checkInputState();
+        });
+
+        // 送出按鈕事件：將資料存入 Realtime Database
+        submitBtn.addEventListener('click', async () => {
+            const text = messageInput.value.trim();
+            if (!text) return;
+
+            submitBtn.disabled = true;
+
+            try {
+                await push(messagesRef, {
+                    text: text,
+                    timestamp: Date.now()
+                });
+
+                // 送出成功後清空欄位並更新按鈕狀態
+                messageInput.value = '';
+                checkInputState();
+            } catch (error) {
+                console.error("資料存入 Realtime Database 失敗：", error);
+                checkInputState();
+            }
+        });
+
+        // 即時監聽資料庫變動 (onValue)
+        onValue(messagesRef, (snapshot) => {
+            messageList.innerHTML = '';
+            const data = snapshot.val();
+
+            if (!data) {
+                messageList.innerHTML = '<li>目前資料庫尚無任何內容</li>';
+                return;
+            }
+
+            // 將物件轉為陣列，並將最新新增的資料放在最上方
+            const items = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).reverse();
+
+            items.forEach(item => {
+                const li = document.createElement('li');
+                const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-TW') : '無時間紀錄';
+                li.textContent = `[${timeStr}] ${item.text}`;
+                messageList.appendChild(li);
+            });
+        }, (error) => {
+            console.error("即時監聽失敗：", error);
+            messageList.innerHTML = '<li>讀取失敗，請確認資料庫存取權限與 App Check 設定。</li>';
+        });
+    </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon='{"version":"2024.11.0","token":"480c9d8468c44ad3bed3c74fbcc6d6f3","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
